@@ -1,0 +1,18 @@
+{
+  "links": {
+    "github": "",
+    "discord": ""
+  },
+  "versions": [
+    {
+      "version": "1.0",
+      "date": "2026-11-22",
+      "file": "firmware/1.0/esp-div-cyd-1.0.bin",
+      "offset": 0,
+      "sha256": "",
+      "changes": [
+        "First public build for CYD (ESP32-2432S028)."
+      ]
+    }
+  ]
+}

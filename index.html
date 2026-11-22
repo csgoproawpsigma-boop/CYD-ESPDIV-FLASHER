@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP DIV for CYD — Web Flasher</title>
+<meta name="description" content="Flash ESP DIV onto a CYD (ESP32-2432S028) straight from your browser. Pick a version, plug in USB, hit Flash.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Archivo:wght@500;800&display=swap" rel="stylesheet">
+<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+<style>
+:root{
+  --bg:#08080a;
+  --bg2:#101013;
+  --line:#25252b;
+  --text:#e6e6e8;
+  --muted:#80808a;
+  --accent:#ff3b3b;     /* single accent: red */
+  --ok:#3bff8a;         /* used only for status text */
+  --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+  --sans:'Archivo',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font:400 16px/1.65 var(--mono);-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-underline-offset:3px}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+
+/* header */
+header{border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(8,8,10,.96);z-index:5}
+header .wrap{display:flex;justify-content:space-between;align-items:center;height:56px;font-size:14px}
+.logo{font-weight:800;letter-spacing:.06em;color:var(--text);text-decoration:none}
+.logo i{color:var(--accent);font-style:normal}
+nav{display:flex;gap:24px}
+nav a{color:var(--muted);text-decoration:none}
+nav a:hover{color:var(--text)}
+
+/* hero */
+.hero{padding:80px 0 56px}
+.tag{display:inline-block;border:1px solid var(--line);padding:4px 10px;font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:24px}
+.tag b{color:var(--accent);font-weight:600}
+h1{font:800 clamp(38px,8vw,84px)/1 var(--sans);letter-spacing:-.03em;max-width:13ch}
+h1 span{color:var(--accent)}
+.lead{margin-top:24px;max-width:52ch;color:var(--muted);font-size:17px}
+
+/* mascot */
+.hero{position:relative}
+.cat{display:block;width:104px;height:auto;margin-bottom:20px}
+.cat .eye{transform-box:fill-box;transform-origin:center;animation:blink 5s infinite}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+@media (prefers-reduced-motion:reduce){.cat .eye{animation:none}}
+@media(min-width:900px){
+  .cat{position:absolute;right:0;top:72px;width:230px;margin:0}
+}
+
+/* terminal-style flasher */
+.term{margin-top:48px;border:1px solid var(--line);background:var(--bg2)}
+.term-bar{display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.term-body{display:grid;grid-template-columns:1fr 1fr}
+.term-body>div{padding:28px}
+.term-body>div+div{border-left:1px solid var(--line)}
+label{display:block;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+select{width:100%;appearance:none;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:0;padding:14px 16px;font:600 18px var(--mono);cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+  background-position:calc(100% - 22px) 50%,calc(100% - 16px) 50%;background-size:6px 6px;background-repeat:no-repeat}
+select:focus{outline:2px solid var(--accent);outline-offset:2px}
+.log{margin-top:14px;font-size:13px;line-height:1.6;color:var(--muted);min-height:4.8em}
+.log .ok{color:var(--ok)} .log .bad{color:var(--accent)}
+.log::before{content:'$ ';color:var(--muted)}
+
+.flash{width:100%;background:var(--accent);color:#08080a;border:0;border-radius:0;padding:20px;font:800 22px var(--mono);letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+.flash:hover{filter:brightness(1.1)}
+.flash:active{transform:translateY(1px)}
+.flash[disabled]{background:var(--line);color:var(--muted);cursor:not-allowed}
+.hint{margin-top:14px;font-size:13px;color:var(--muted)}
+.unsupported{display:block;padding:14px;border:1px solid var(--accent);color:var(--accent);font-size:13px}
+
+/* sections */
+section{padding:72px 0;border-top:1px solid var(--line)}
+section.air{padding:110px 0}
+.cols{display:grid;grid-template-columns:200px 1fr;gap:40px}
+h2{font:600 13px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+
+ol.steps{list-style:none;counter-reset:s}
+ol.steps li{counter-increment:s;padding:18px 0 18px 60px;border-bottom:1px solid var(--line);position:relative;max-width:64ch}
+ol.steps li:first-child{border-top:1px solid var(--line)}
+ol.steps li::before{content:counter(s,decimal-leading-zero);position:absolute;left:0;top:18px;font-weight:800;font-size:20px;color:var(--accent)}
+ol.steps b{display:block;font-weight:600}
+ol.steps span{color:var(--muted);font-size:14px}
+
+table{width:100%;border-collapse:collapse;font-size:14px}
+td{padding:12px 0;border-bottom:1px solid var(--line);vertical-align:top}
+td:first-child{color:var(--muted);width:40%;padding-right:16px}
+.note{margin-top:20px;color:var(--muted);font-size:14px;max-width:62ch}
+
+details{border-bottom:1px solid var(--line);padding:18px 0}
+details:first-of-type{border-top:1px solid var(--line)}
+summary{cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:16px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:'+';color:var(--accent)}
+details[open] summary::after{content:'−'}
+details p{margin-top:12px;color:var(--muted);font-size:14px;max-width:64ch}
+code{background:var(--bg2);border:1px solid var(--line);padding:1px 6px;font-size:.92em}
+
+.sha{margin-top:6px;font-size:12px;color:var(--muted);word-break:break-all}
+.sha .ok{color:var(--ok)} .sha .bad{color:var(--accent)}
+.rel{padding:20px 0;border-bottom:1px solid var(--line)}
+.rel:first-child{border-top:1px solid var(--line)}
+.rel-h{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap}
+.rel-h b{font-size:18px}
+.rel-h span{color:var(--muted);font-size:13px}
+.rel ul{margin:10px 0 0 18px;color:var(--muted);font-size:14px}
+.rel-sha{margin-top:12px;font-size:12px;color:var(--muted);word-break:break-all}
+.rel-sha b{color:var(--text);font-weight:600}
+footer a{color:var(--text)}
+footer a:hover{color:var(--accent)}
+#links{display:flex;gap:18px}
+footer{border-top:1px solid var(--line);padding:32px 0 48px;font-size:12px;color:var(--muted)}
+footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+
+@media(max-width:760px){
+  nav{display:none}
+  .hero{padding:48px 0 40px}
+  .term-body{grid-template-columns:1fr}
+  .term-body>div+div{border-left:0;border-top:1px solid var(--line)}
+  .cols{grid-template-columns:1fr;gap:20px}
+  section,section.air{padding:52px 0}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a class="logo" href="#">ESP<i>/</i>DIV</a>
+    <nav>
+      <a href="#how">How to flash</a>
+      <a href="#what">What you get</a>
+      <a href="#changelog">Versions</a>
+      <a href="#faq">Troubleshooting</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap">
+
+  <div class="hero">
+    <svg class="cat" viewBox="0 0 200 200" role="img" aria-label="Cyber cat mascot" fill="none" stroke="#e6e6e8" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+      <!-- antenna -->
+      <path d="M160 34 V14"/>
+      <circle cx="160" cy="10" r="4.5" fill="#ff3b3b" stroke="none"/>
+      <!-- ears -->
+      <path d="M42 92 V34 L88 64"/>
+      <path d="M158 92 V34 L112 64"/>
+      <path d="M52 78 V52 L72 65" stroke="#80808a" stroke-width="2"/>
+      <!-- head -->
+      <path d="M42 92 Q42 62 100 62 Q158 62 158 92 V138 Q158 172 100 172 Q42 172 42 138 Z" fill="#101013"/>
+      <!-- visor -->
+      <rect x="54" y="90" width="92" height="30" fill="#08080a"/>
+      <rect class="eye" x="64" y="98" width="24" height="14" fill="#ff3b3b" stroke="none"/>
+      <rect class="eye" x="112" y="98" width="24" height="14" fill="#ff3b3b" stroke="none"/>
+      <!-- nose and mouth -->
+      <path d="M93 132 H107 L100 141 Z" fill="#ff3b3b" stroke="none"/>
+      <path d="M100 141 V150 M100 150 Q92 157 85 151 M100 150 Q108 157 115 151" stroke-width="2.5"/>
+      <!-- whiskers -->
+      <path d="M30 128 H52 M30 142 L52 138 M170 128 H148 M170 142 L148 138" stroke="#80808a" stroke-width="2"/>
+      <!-- cheek circuit -->
+      <path d="M58 150 H70 V160 H80" stroke="#80808a" stroke-width="2"/>
+      <circle cx="58" cy="150" r="2.5" fill="#80808a" stroke="none"/>
+      <path d="M142 150 H130 V160 H120" stroke="#80808a" stroke-width="2"/>
+      <circle cx="142" cy="150" r="2.5" fill="#80808a" stroke="none"/>
+    </svg>
+    <span class="tag">Web flasher · <b>CYD / ESP32</b></span>
+    <h1>Flash ESP DIV on your <span>CYD</span>.</h1>
+    <p class="lead">Plug in the board, pick a version, press Flash. Nothing to install. It all runs in your browser over USB.</p>
+
+    <div class="term" id="flasher">
+      <div class="term-bar"><span>esp-div / flasher</span><span>web serial</span></div>
+      <div class="term-body">
+        <div>
+          <label for="ver">Firmware version</label>
+          <select id="ver" aria-label="Firmware version"></select>
+          <div class="log" id="meta">Loading version list…</div>
+          <div class="sha" id="sha"></div>
+        </div>
+        <div>
+          <label>Device</label>
+          <esp-web-install-button id="installer">
+            <button slot="activate" class="flash" id="flashBtn" disabled>Flash</button>
+            <span slot="unsupported" class="unsupported">This browser can't talk to USB serial ports. Open this page in Chrome, Edge or Opera on a desktop.</span>
+            <span slot="not-allowed" class="unsupported">This page must be served over HTTPS (or localhost).</span>
+          </esp-web-install-button>
+          <p class="hint">Chrome / Edge / Opera on desktop. Safari and Firefox won't work. On phones: Android with an OTG cable and Chrome only.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section id="how" class="air">
+    <div class="cols">
+      <h2>How to flash</h2>
+      <ol class="steps">
+        <li><b>Connect the CYD with a data cable.</b><span>Some USB cables are charge-only. If no port shows up, swap the cable first.</span></li>
+        <li><b>Pick a version and press Flash.</b><span>The browser lists serial ports. Look for CH340, CP210x or "USB Serial".</span></li>
+        <li><b>Press Install and wait.</b><span>Usually 30–60 seconds. Don't unplug until it says "Installation complete".</span></li>
+        <li><b>Press RESET on the board.</b><span>Screen still black? Unplug and replug USB.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="what">
+    <div class="cols">
+      <h2>What you get</h2>
+      <div>
+        <table>
+          <tr><td>Board</td><td>CYD, ESP32-2432S028 (ESP32-WROOM-32)</td></tr>
+          <tr><td>Firmware</td><td>ESP DIV</td></tr>
+          <tr><td>Image</td><td>single merged .bin at 0x0</td></tr>
+          <tr><td>Overwrites</td><td>everything currently on the board</td></tr>
+          <tr><td>Settings</td><td>reset if you tick "Erase device"</td></tr>
+        </table>
+        <p class="note">The bootloader, partition table and app are written in one go. To go back, just pick another version from the list.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="changelog">
+    <div class="cols">
+      <h2>Versions</h2>
+      <div id="changelog-list"></div>
+    </div>
+  </section>
+
+  <section id="faq" class="air">
+    <div class="cols">
+      <h2>Troubleshooting</h2>
+      <div>
+        <details>
+          <summary>No port shows up in the list</summary>
+          <p>Nine times out of ten it's a charge-only cable. Otherwise install the CH340 or CP210x driver. On Linux, add yourself to the <code>dialout</code> group.</p>
+        </details>
+        <details>
+          <summary>Stuck on "Connecting…"</summary>
+          <p>Hold the BOOT button on the board, press Flash, and keep holding BOOT until writing starts. Some CYD boards don't enter download mode on their own.</p>
+        </details>
+        <details>
+          <summary>Flashed, but the screen is white or black</summary>
+          <p>Press RESET. If that doesn't help, flash again with "Erase device" on. CYD boards ship with different display drivers (ILI9341 and ST7789), so the firmware has to be built for yours.</p>
+        </details>
+        <details>
+          <summary>Can I flash from my phone?</summary>
+          <p>Only Android, with an OTG cable and Chrome. iPhones don't support Web Serial at all.</p>
+        </details>
+        <details>
+          <summary>Is it safe for the board?</summary>
+          <p>Yes. You're writing to the normal ESP32 flash, same as any other firmware. Worst case, you flash it again.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span id="links"></span>
+    <span>ESP DIV · web flasher</span>
+    <span>Flashing runs locally over Web Serial. Nothing is uploaded.</span>
+  </div>
+</footer>
+
+<script>
+(async function () {
+  const sel = document.getElementById('ver');
+  const meta = document.getElementById('meta');
+  const btn = document.getElementById('flashBtn');
+  const inst = document.getElementById('installer');
+  let versions = [], links = {};
+  let token = 0;
+
+  const abs = p => new URL(p, location.href).href;
+
+  async function exists(url) {
+    try { const r = await fetch(url, { method: 'HEAD', cache: 'no-store' }); return r.ok; }
+    catch (e) { return false; }
+  }
+  const setMeta = html => { meta.innerHTML = html; };
+  const shaEl = document.getElementById('sha');
+
+  async function sha256Hex(buf) {
+    const h = await crypto.subtle.digest('SHA-256', buf);
+    return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function verify(v, url, my) {
+    if (!v.sha256) { shaEl.textContent = ''; return; }
+    const expected = v.sha256.toLowerCase();
+    shaEl.innerHTML = 'sha256 ' + expected.slice(0, 16) + '… · verifying';
+    try {
+      const buf = await (await fetch(url, { cache: 'no-store' })).arrayBuffer();
+      const got = await sha256Hex(buf);
+      if (my !== token) return;
+      if (got === expected) {
+        shaEl.innerHTML = 'sha256 ' + expected.slice(0, 16) + '… <span class="ok">verified</span>';
+      } else {
+        btn.disabled = true;
+        shaEl.innerHTML = '<span class="bad">sha256 mismatch. The file does not match versions.json. Flashing is blocked.</span>';
+      }
+    } catch (e) {
+      if (my === token) shaEl.innerHTML = 'sha256 ' + expected.slice(0, 16) + '… (could not verify here)';
+    }
+  }
+
+  function renderChangelog() {
+    const box = document.getElementById('changelog-list');
+    box.textContent = '';
+    versions.forEach(v => {
+      const rel = document.createElement('div'); rel.className = 'rel';
+      const h = document.createElement('div'); h.className = 'rel-h';
+      const b = document.createElement('b'); b.textContent = 'v' + v.version;
+      h.appendChild(b);
+      if (v.date) { const s = document.createElement('span'); s.textContent = v.date; h.appendChild(s); }
+      rel.appendChild(h);
+      const items = v.changes && v.changes.length ? v.changes : (v.notes ? [v.notes] : []);
+      if (items.length) {
+        const ul = document.createElement('ul');
+        items.forEach(t => { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
+        rel.appendChild(ul);
+      }
+      if (v.sha256) {
+        const d = document.createElement('div'); d.className = 'rel-sha';
+        const k = document.createElement('b'); k.textContent = 'SHA-256 ';
+        d.appendChild(k); d.appendChild(document.createTextNode(v.sha256));
+        rel.appendChild(d);
+      }
+      box.appendChild(rel);
+    });
+  }
+
+  function renderLinks() {
+    const box = document.getElementById('links');
+    [['github', 'GitHub'], ['discord', 'Discord']].forEach(([key, name]) => {
+      if (!links[key]) return;
+      const a = document.createElement('a');
+      a.href = links[key]; a.textContent = name; a.target = '_blank'; a.rel = 'noopener';
+      box.appendChild(a);
+    });
+  }
+
+  async function select(i) {
+    const v = versions[i];
+    if (!v) return;
+    const my = ++token;
+    const url = abs(v.file);
+    btn.disabled = true;
+    shaEl.textContent = '';
+    setMeta('Checking firmware file…');
+    if (!(await exists(url))) {
+      setMeta('<span class="bad">File not found:</span><br>' + v.file);
+      return;
+    }
+    const manifest = {
+      name: 'ESP DIV',
+      version: v.version,
+      new_install_prompt_erase: true,
+      builds: [{ chipFamily: 'ESP32', parts: [{ path: url, offset: v.offset || 0 }] }]
+    };
+    const mUrl = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/json' }));
+    inst.setAttribute('manifest', mUrl);
+    inst.manifest = mUrl;
+    btn.disabled = false;
+    setMeta(
+      '<span class="ok">ready</span><br>' +
+      'v' + v.version + (v.date ? ' · ' + v.date : '') +
+      (v.notes ? '<br>' + v.notes : '')
+    );
+    try { history.replaceState(null, '', '?v=' + encodeURIComponent(v.version)); } catch (e) {}
+    verify(v, url, my);
+  }
+
+  try {
+    const r = await fetch('versions.json', { cache: 'no-store' });
+    const data = await r.json();
+    versions = data.versions || [];
+    links = data.links || {};
+  } catch (e) {
+    setMeta('<span class="bad">Could not load versions.json</span>');
+    return;
+  }
+  if (!versions.length) { setMeta('<span class="bad">No versions yet.</span>'); return; }
+
+  versions.forEach((v, i) => {
+    const o = document.createElement('option');
+    o.value = i; o.textContent = 'v' + v.version;
+    sel.appendChild(o);
+  });
+
+  renderChangelog();
+  renderLinks();
+
+  const want = new URLSearchParams(location.search).get('v');
+  const start = Math.max(0, versions.findIndex(v => v.version === want));
+  sel.value = start;
+  sel.addEventListener('change', () => select(+sel.value));
+  select(start);
+})();
+</script>
+</body>
+</html>
